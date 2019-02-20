@@ -94,6 +94,56 @@ class datalogger():
         f.write('\n#  Vds  Id  timestamp' + '\n')
         f.close()
         self.saveData(data)
+    
+    def saveImpedance(self, frequency, Zreal, Zimag, rawmeasurement, timestamp):
+        frequency_np = np.array(frequency)
+        Zreal_np = np.array(Zreal)
+        Zimag_np = np.array(Zimag)
+        iter = 0
+        rows = frequency_np.shape[0]
+        data = np.zeros(rows*6).reshape(rows,6)
+        timestamp_np = np.array(timestamp)
+        data[:,0] = frequency_np
+        data[:,1] = Zreal_np
+        data[:,2] = Zimag_np
+        for meas in rawmeasurement:
+            rawmeasurement_mag_volts_np = np.array(float(meas.split(',')[0]))
+            rawmeasurement_phase_degree_np = np.array(float(meas.split(',')[1]))       
+            data[iter,3] = rawmeasurement_mag_volts_np
+            data[iter,4] = rawmeasurement_phase_degree_np
+            iter += 1
+        data[:,5] = timestamp_np
+        f = open(self.filePath, 'a')
+        f.write('\n#header:  frequency, Zreal, -Zimag, rawmeasurement_mag_volts, rawmeasurement_phase_degree, timestamp' + '\n')
+        f.close()
+        self.saveData(data)
+
+    def save_cyclic_voltammetery(self, V, I, timestamp):
+        V_np = np.array(V)
+        I_np = np.array(I)
+        timestamp_np = np.array(timestamp)
+        rows = timestamp_np.shape[0]
+        data = np.zeros(rows*3).reshape(rows,3)
+        data[:,0] = V_np
+        data[:,1] = I_np
+        data[:,2] = timestamp_np
+        f = open(self.filePath, 'a')
+        f.write('\n#  Volt, Current, timestamp' + '\n')
+        f.close()
+        self.saveData(data)
+
+    def save_potential_measurement(self, V, timestamp):
+        V_np = np.array(V)
+        timestamp_np = np.array(timestamp)
+
+        rows = timestamp_np.shape[0]
+        data = np.zeros(rows*2).reshape(rows,2)
+        data[:,0] = V_np
+        data[:,1] = timestamp_np
+        f = open(self.filePath, 'a')
+        f.write('\n#  Volt, timestamp' + '\n')
+        f.close()
+        self.saveData(data)
 
     def saveOnline_Measurement(self, Id,Ig,Vds,Vgs,timestep):
         Id_sp = np.array(Id)

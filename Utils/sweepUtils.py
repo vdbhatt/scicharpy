@@ -6,13 +6,18 @@ def GetSweepVoltage(startV, endV, stepsize):
     """   
     startV = startV
     endV = endV
-    stepsize = stepsize
+    stepsize = abs(stepsize)
     varray = []
     vstep = startV
     varray.append(vstep)
-    while(vstep <= endV):
-        vstep += stepsize
-        varray.append(vstep)
+    if startV < endV:  
+        while(vstep <= endV):
+            vstep += stepsize
+            varray.append(vstep)
+    else:
+        while(vstep >= endV):
+            vstep -= stepsize
+            varray.append(vstep)
     return varray
 
 def GetDoubleSweep(startV, maxV, minV, stepsize, number_of_transfer_meas):

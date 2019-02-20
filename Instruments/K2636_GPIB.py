@@ -16,7 +16,7 @@ class K2636_GPIB():
         measured_Id = float(self.ins.ask(SCPI_Command))
         return measured_Id  
 
-    def measureId_Ig_VgsStep(self, gate, drain, vgs_step,wait_before_measure):
+    def measureId_Ig_VgsStep(self, gate, drain, vgs_step, wait_before_measure):
         SCPI_Command =  gate + '.source.levelv = ' + str(vgs_step)
         self.ins.write(SCPI_Command)
         time.sleep(wait_before_measure)
@@ -34,9 +34,10 @@ class K2636_GPIB():
         measured_Id = float(self.ins.ask(SCPI_Command))
         return measured_Id
 
-    def measureId_Ig_VdsStep(self,  gate, drain, vds_step):
+    def measureId_Ig_VdsStep(self, gate, drain, vds_step, wait_before_measure):
         SCPI_Command =  drain + '.source.levelv = ' + str(vds_step)
         self.ins.write(SCPI_Command)
+        time.sleep(wait_before_measure)
         SCPI_Command = 'print(' + drain + '.measure.i())'
         measured_Id = float(self.ins.ask(SCPI_Command))
         SCPI_Command = 'print(' + gate + '.measure.i())'
@@ -88,9 +89,10 @@ class K2636_GPIB():
                 break
         if present_range == selected_range:
             return selected_range
+            
 
         if Sourcemode == 'DC_V':
-            self.ins.write(smu + '.source.measure.autorangei = ' + smu + '.AUTORANGE_OFF')
+            self.ins.write(smu + '.source.measure.autorangei = ' + smu + '.AUTORANGE_ON')
             self.ins.write(smu + '.rangei = ' + str(selected_range) )
         
         return selected_range
@@ -103,6 +105,7 @@ class K2636_GPIB():
                 limiti = current_limit
                 self.ins.write(smu + '.source.limiti = {}'.format(limiti))
                 self.ins.write(smu + '.measure.autorangei = ' + smu + '.AUTORANGE_ON')
+                self.ins.write(smu +'.sense = ' + smu + '.SENSE_LOCAL')
             else:
                 self.ins.write(smu + '.source.limiti = {}'.format(limiti))
                 self.ins.write(smu + '.measure.rangei = {}'.format(measurementRange))
@@ -133,7 +136,7 @@ class K2636_GPIB():
         SCPI_Command = channel + '.source.output =' + channel +'.OUTPUT_OFF'
         self.ins.write(SCPI_Command)
 
-    def setVoltage(self,channel,voltage):
+    def setVoltage(self, channel, voltage):
         SCPI_Command =  channel + '.source.levelv = ' + str(voltage)
         self.ins.write(SCPI_Command)
 

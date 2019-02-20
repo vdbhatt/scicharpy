@@ -41,6 +41,8 @@
     <Folder Include="UI\" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CharacterizationType\cyclicvoltammeter.py" />
+    <Compile Include="CharacterizationType\impedance.py" />
     <Compile Include="DataLogger\datalogger.py" />
     <Compile Include="DataLogger\__init__.py">
       <SubType>Code</SubType>

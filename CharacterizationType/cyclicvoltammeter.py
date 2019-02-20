@@ -2,45 +2,33 @@ import numpy as np
 import pyqtgraph as pg
 import threading
 import time
-from Instruments.U2722A import * 
-from Utils.sweepUtils import *
+from Utils.converter import *
+
 
 from DataLogger.datalogger import datalogger
 from DataProcessing.processData import processData
 import arrow
 from Utils.FuncThread import FuncThread
+from Utils.sweepUtils import *
 
-class NANOBIO_ChannelResistance():
-    def __init__(self, measuringInstrument,rp, datalogger):
-        ###---------------- MEASUREMENT PARAMETERS ----------------### 
+class NanoBIO_CVCharacterizer():
+    def __init__(self, measuringInstrument, cvp, datalogger):
        
-        self.Vds_Start = rp.Vds_Start
-        self.Vds_max = rp.Vds_max
-        self.Vds_min = rp.Vds_min
-        self.Vds_step = rp.Vds_step
-    
-        self.sweepDelay = rp.sweepDelay
-        self.number_of_res_meas = rp.number_of_res_meas
-        self.id_limit_ms = rp.id_limit_ms
-
+        ###---------------- MEASUREMENT PARAMETERS ----------------### 
+        self.startV = cvp.startV
+        self.endV = cvp.endV
+        self.minV = cvp.minV
+        self.scan_rate = cvp.scan_rate
+        self.step_size = cvp.step_size
+        self.cycles = cvp.cycles
+        self.channel = 'smua'
         self.measurementRange = 'auto'
-        self.Sourcemode = 'DC_V'
-        #self.drain = '2'
-
-        if rp.ins_u2722a:
-            self.gate = 1
-            self.drain = 2
-        elif rp.ins_k2636 :
-            self.gate = 'smua'
-            self.drain = 'smub'
-        else:
-            self.gate = 'smua'
-            self.drain = 'smub'
-
+        self.Sourcemode = 'DC_V'   
+        self.I_limit = cvp.I_limit   
         ##############################################################
         self.timestep = []
-        self.Id = []
-        self.VdsBuffer = []
+        self.I = []
+        self.V = []
         self.xdata = []
         self.ydata = []
         self.timestamp = []
@@ -51,7 +39,8 @@ class NANOBIO_ChannelResistance():
         self.win = pg.GraphicsWindow()
         self.plot1 = self.win.addPlot()  
         self.curve = self.plot1.plot()
-        self.curve.setPen('g')
+        self.curve.setPen(None)
+        self.curve.setSymbol('o')
         self.measuringinstrument = measuringInstrument    
         self.measurementDone = False
         self.DataSaved = False
@@ -79,58 +68,52 @@ class NANOBIO_ChannelResistance():
             self.dataAquistion_thread.join()
         self.win.close()
         if self.DataSaved != True:
-            self.dl.saveResistance(self.Id, self.VdsBuffer, self.timestamp)
+            self.dl.save_cyclic_voltammetery(self.V, self.I, self.timestamp)
             self.DataSaved = True
-        self.measuringinstrument.channeloff(self.drain)
         self.measurementDone = True
+        self.measuringinstrument.TurnoffChannels()
 
     def executeDataAquisition(self):
-        self.measuringinstrument.Configure(self.measurementRange, self.Sourcemode, self.drain, self.id_limit_ms)
+        self.measuringinstrument.SetupVoltammeter(self.measurementRange, self.Sourcemode, self.channel, self.I_limit)
         set_range_counter = 5
-        present_range_Id = 10e-03
-        self.measuringinstrument.channelon( self.drain)
-        
+        present_range_I = 1e-03
         self.dl.WriteMeasurementSettings(self.getMeasurementSettings())
-        
-        Vds = GetDoubleSweep (self.Vds_Start, self.Vds_max, self.Vds_min, self.Vds_step, self.number_of_res_meas)
-        
         measurementTime = 0
-           
-        for vds_step in Vds:
+        volt_array  = GetDoubleSweep(self.startV,self.endV,self.minV, self.step_size, self.cycles)
+        step_delay = self.step_size / self.scan_rate  # in seconds
+
+        t0 = time.time()
+        for single_step in volt_array:
             if self.clean_exit_signal:
                 return
-            t0 = time.time()
-            measured_Id = self.measuringinstrument.measureId_VdsStep( self.drain,  vds_step)
+            I = self.measuringinstrument.measureI_VStep(self.channel, single_step, step_delay)
             dt = time.time()-t0
             measurementTime += dt 
-            # set_range_counter -= 1
-            set_range_counter = 1
+            set_range_counter -= 1
             ##########  FIX THE MEASUREMENT RANGE
             if set_range_counter <= 0:
-                set_range_counter = 2
-                present_range_Id = self.measuringinstrument.SetRange( self.Sourcemode, measured_Id, present_range_Id, self.drain)
-            time.sleep(self.sweepDelay)       
-            
-            self.Id.append(measured_Id)
-            self.VdsBuffer.append(vds_step)
+                set_range_counter = 5
+                present_range_I = self.measuringinstrument.SetRange(self.Sourcemode, I, present_range_I, self.channel)
+            ####################  save the data ###############
+            self.I.append(I)
+            self.V.append(single_step)
             self.timestamp.append(measurementTime)                
-            self.xdata = self.VdsBuffer
-            self.ydata = self.Id
+            self.xdata = self.V
+            self.ydata = self.I
+
         self.measurementDone = True
         self.measurement_finished_wo_interuption = True
         return
 
-        
-
     def getMeasurementSettings(self ):
         settings =  (           
                      '\n#  ' + self.dl.measCond
-                    +'\n#Vds_Start = '+ str(self.Vds_Start)
-                    +'\n#Vds_max = ' + str(self.Vds_max )
-                    +'\n#Vds_min = ' + str(self.Vds_min )
-                    +'\n#Vds_step  = ' + str(self.Vds_step )
-                    +'\n#measurementRange = ' + str(self.measurementRange) 
-                    +'\n#Sourcemode  = ' + str(self.Sourcemode )
-                    +'\n#sweepDelay  = ' + str(self.sweepDelay)
+                    +'\n#StartV = '+ str(self.startV)
+                    +'\n#MaxV = ' + str(self.endV )
+                    +'\n#MinV = ' + str(self.minV )
+                    +'\n#Scan rate = ' + str(self.scan_rate ) + r'V/s'
+                    +'\n#Step size  = ' + str(self.step_size ) + r'V'
+                    +'\n#Cycles = ' + str(self.cycles) 
         )
         return settings
+    

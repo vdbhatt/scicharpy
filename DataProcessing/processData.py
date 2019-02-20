@@ -20,7 +20,7 @@ class processData():
         data = pd.read_csv(StringIO(dataLines), sep=sep, error_bad_lines=False)
 
         comments = "".join([line for line in open(self.dataFilepath) 
-                        if line.startswith(comment_symbol)])
+                        if (line.startswith(comment_symbol) and (not line.startswith(comment_symbol + 'header:')) )])
         return comments, data
 
     def saveTransferCharacteristics(self):
@@ -34,7 +34,7 @@ class processData():
         titlestring = 'Transfer characteristics  ' + str(self.filename )
 
 
-        Vth = self.GetVth(Vgs, Id)
+        Vth = 0 #self.GetVth(Vgs, Id)
         print(Vth)
         transferFigure = plt.figure()
         idaxis = transferFigure.add_subplot(111)
@@ -176,43 +176,26 @@ class processData():
         titlestring = 'Output characteristics  ' + str(self.filename )
 
         outputFigure = plt.figure()
-        ax1 = outputFigure.add_subplot(111)
-
-        unique_Vgs = []
-        unique_Vgs_step = Vgs[0]
-        unique_Vgs.append(unique_Vgs_step)
-        delta = 1e-4 # difference of 100 uV
-        vds_fixed_Vgs = []
-        Id_fixed_Vgs = []
-        newVgs = False
-        index = 0
-        for vgs_step in Vgs:
-            if abs(unique_Vgs_step - vgs_step) > delta:
-                ax1.text(max(vds_fixed_Vgs), max(Id_fixed_Vgs), unique_Vgs_step, fontsize=8)
-                ax1.plot(vds_fixed_Vgs, Id_fixed_Vgs)
-                unique_Vgs_step = vgs_step
-                unique_Vgs.append(unique_Vgs_step)
-                newVgs = True
-
-                vds_fixed_Vgs = []
-                Id_fixed_Vgs = []
-                vds_fixed_Vgs.append(Vds[index])
-                Id_fixed_Vgs.append(Id[index])
-            else:
-                newVgs = False
-                vds_fixed_Vgs.append(Vds[index])
-                Id_fixed_Vgs.append(Id[index])
-            index += 1
-
-
+        idaxis = outputFigure.add_subplot(111)
+        Id_uA = Id/(1e-6)
+        idaxis.plot(Vds,Id_uA,'b')
         right = 1.1*np.max(Vds)
         bottom = np.min(Id)
 
-        ax1.set_title(titlestring, fontsize=20)
-        ax1.text(right, bottom,  com, fontsize=10)
-        ax1.set_xlabel(r'$V_{ds}[V]$', fontsize=20)
-        ax1.set_ylabel(r'$I_{d}[A]$', fontsize=20)
-        ax1.grid(True)
+        idaxis.set_title(titlestring, fontsize=16)
+
+        idaxis.set_xlabel(r'$V_{ds}[V]$', fontsize=20)
+        idaxis.set_ylabel(r'$I_{d}[\mu A]$', color='b', fontsize=20)
+        
+        igaxis = idaxis.twinx()
+        Ig_nA = Ig/(1e-9)
+        igaxis.plot(Vds,Ig_nA,'r')
+
+        iglabel = igaxis.set_ylabel(r'$I_{g}[nA]$', color='r',fontsize=20)
+        location = iglabel.get_position()
+        
+        igaxis.text(1.2, 0, com, fontsize=10, transform = igaxis.transAxes )
+        idaxis.grid(True)        
         outputFigure.savefig(self.imagePath, dpi = 400, bbox_inches='tight')
 
 
@@ -239,6 +222,88 @@ class processData():
         idaxis.grid(True)
         
         resFigure.savefig(self.imagePath, dpi = 400, bbox_inches='tight')
+    
+    def saveimpedance(self):
+        com, df = self.read_data_comments()
+        data = df.values
+        freq = data[:,0]
+        real = data[:,1]
+        imag = data[:,2]
+        titlestring = str(self.filename )
+
+        resFigure = plt.figure(figsize=(6,6))
+        imp_axis = resFigure.add_subplot(111)
+       
+        xwidth = np.amax(real)-np.amin(real)
+        ywidth = np.amax(imag)-np.amin(imag)
+        width = np.amax([xwidth, ywidth])
+
+        xedge = np.amax(real)*0.1
+        yedge = np.amax(imag)*0.1
+        edge= np.amax([xedge, yedge])
+        ymin = np.amin(imag)-edge
+        ytop = np.amin(imag) + width + edge
+        xmin = np.amin(real)-edge
+        xtop = np.amin(real) + width + edge
+       
+        
+        imp_axis.set_xlim(xmin, xtop)
+        imp_axis.set_ylim(ymin, ytop)
+        imp_axis.plot(real, imag, '*')
+
+        imp_axis.set_title(titlestring, fontsize=20)
+
+        imp_axis.set_xlabel(r'$Z_{real}[\Omega]$', color='b', fontsize=20)
+        imp_axis.set_ylabel(r'$-Z_{imag}[\Omega]$', color='b', fontsize=20)
+        right = 1 
+        bottom = 0 
+
+        imp_axis.text(right, bottom, com, fontsize=10, transform = imp_axis.transAxes )
+        imp_axis.grid(True)
+        resFigure.savefig(self.imagePath, dpi = 400, bbox_inches='tight')
+
+    def process_cyclic_voltammetery(self):
+        com, df = self.read_data_comments()
+        data = df.values
+        V = data[:,0]
+        I = data[:,1]
+        titlestring = str(self.filename )
+
+        resFigure = plt.figure(figsize=(6,6))
+        imp_axis = resFigure.add_subplot(111)
+        imp_axis.plot(V, I, '*')
+
+        imp_axis.set_title(titlestring, fontsize=20)
+
+        imp_axis.set_xlabel(r'$V[V]$', color='b', fontsize=20)
+        imp_axis.set_ylabel(r'$I[I]$', color='b', fontsize=20)
+        right = 1 
+        bottom = 0
+        imp_axis.text(right, bottom, com, fontsize=10, transform = imp_axis.transAxes )
+        imp_axis.grid(True)
+        resFigure.savefig(self.imagePath, dpi = 400, bbox_inches='tight')        
+
+    def process_potential_measurement(self):
+        com, df = self.read_data_comments()
+        data = df.values
+        V = data[:,0]
+        t = data[:,1]
+        titlestring = str(self.filename )
+
+        resFigure = plt.figure(figsize=(6,6))
+        imp_axis = resFigure.add_subplot(111)
+        imp_axis.plot(t, V, '*')
+
+        imp_axis.set_title(titlestring, fontsize=20)
+
+        imp_axis.set_xlabel(r'$V[V]$', color='b', fontsize=20)
+        imp_axis.set_ylabel(r'$I[I]$', color='b', fontsize=20)
+        right = 1 
+        bottom = 0
+        imp_axis.text(right, bottom, com, fontsize=10, transform = imp_axis.transAxes )
+        imp_axis.grid(True)
+        resFigure.savefig(self.imagePath, dpi = 400, bbox_inches='tight')   
+
 
     def saveOnlineCharacteristics(self):
         com, df = self.read_data_comments()
