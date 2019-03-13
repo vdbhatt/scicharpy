@@ -1,3 +1,6 @@
+# Should i make a demo video on how to setup help? 
+Hi, I was recently explaining one friend on how to setup and realized maybe a video might help to get started. If atleast 5 people vote for a video i'll happily make a demo on how to add new instrument and modify the GUI to accomodate new features and how we can take control of our tests :) Just raise issue on Issues tab.
+
 # scicharpy
 
 Scientific instrument control for measurement and analysis using python and PyQt, primarily developed for transistor and biosensor characterization
